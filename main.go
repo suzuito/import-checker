@@ -34,7 +34,7 @@ type File struct {
 // ルールの集合
 type Rules struct {
 	// Import制約ルール
-	Rules []Rule `yaml:"rules"`
+	Rules []*Rule `yaml:"rules"`
 }
 
 // ルール
@@ -80,7 +80,8 @@ type ResultViolation struct {
 
 var headlineUsage = `ルールに従い、1つのGoのモジュール中のあるパッケージが別のパッケージをimportしているかどうか検証する。
 
-ルールはYAML形式で記述される。
+ルールはYAMLファイルで記述される。
+
 `
 
 func usage() {
@@ -117,12 +118,12 @@ func run(
 		log.Printf("ルールファイルの読み込めませんでした。: %+v\n", err)
 		return err
 	}
-	rules := []*Rule{}
+	rules := Rules{}
 	if err := yaml.Unmarshal(ruleFileBytes, &rules); err != nil {
 		log.Printf("ルールファイルをYAML形式として読み込めませんでした。: %+v\n", err)
 		return err
 	}
-	for _, rule := range rules {
+	for _, rule := range rules.Rules {
 		for _, pattern := range rule.SrcImportPathPatterns {
 			matcher, err := regexp.Compile(pattern)
 			if err != nil {
@@ -193,7 +194,7 @@ func run(
 	}
 
 	// Validate
-	results := validate(rules, packages)
+	results := validate(rules.Rules, packages)
 	isViolationOccured := false
 	for _, result := range results {
 		if !result.HasViolation() {

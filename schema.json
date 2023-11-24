@@ -1,0 +1,52 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "title": "ルール定義",
+    "type": "object",
+    "required": [
+        "rules"
+    ],
+    "properties": {
+        "rules": {
+            "title": "ルールの配列",
+            "description": "ルール定義ファイルは、複数のルールから構成されます。",
+            "type": "array",
+            "items": [
+                {
+                    "title": "ルール",
+                    "type": "object",
+                    "required": [
+                        "srcImportPathPatterns",
+                        "forbiddenImportPathPatterns"
+                    ],
+                    "properties": {
+                        "name": {
+                            "title": "ルール名",
+                            "description": "ルール名は空文字列でも良い。このルール名は、検証にてルール違反が検知された場合、違反したルール名を出力する際に使用される。",
+                            "type": "string"
+                        },
+                        "srcImportPathPatterns": {
+                            "title": "import元のImportPathの指定",
+                            "description": "import元のImportPathの指定。言い換えると、importする側のパッケージのImportPath。正規表現で指定すること。",
+                            "type": "array",
+                            "items": [
+                                {
+                                    "type": "string"
+                                }
+                            ]
+                        },
+                        "forbiddenImportPathPatterns": {
+                            "title": "importが禁止されているImportPathの指定",
+                            "description": "importが禁止されているImportPathの指定。複数指定可能。正規表現で指定すること。",
+                            "type": "array",
+                            "items": [
+                                {
+                                    "type": "string"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    }
+}
