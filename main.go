@@ -102,30 +102,32 @@ func main() {
 	}
 	log.SetFlags(0)
 	// log.SetOutput(io.Discard)
-	run(ruleFilePath, dirPathGoModule)
+	if err := run(ruleFilePath, dirPathGoModule); err != nil {
+		os.Exit(1)
+	}
 }
 
 func run(
 	ruleFilePath,
 	dirPathGoModule string,
-) {
+) error {
 	// ルールファイルを読み込む
 	ruleFileBytes, err := os.ReadFile(ruleFilePath)
 	if err != nil {
 		log.Printf("ルールファイルの読み込めませんでした。: %+v\n", err)
-		os.Exit(2)
+		return err
 	}
 	rules := []*Rule{}
 	if err := yaml.Unmarshal(ruleFileBytes, &rules); err != nil {
 		log.Printf("ルールファイルをYAML形式として読み込めませんでした。: %+v\n", err)
-		os.Exit(2)
+		return err
 	}
 	for _, rule := range rules {
 		for _, pattern := range rule.SrcImportPathPatterns {
 			matcher, err := regexp.Compile(pattern)
 			if err != nil {
 				log.Printf("不正な正規表現を検知しました。[%s]: %+v\n", pattern, err)
-				os.Exit(2)
+				return err
 			}
 			rule.SrcImportPathPatternMatchers = append(rule.SrcImportPathPatternMatchers, *matcher)
 		}
@@ -133,7 +135,7 @@ func run(
 			matcher, err := regexp.Compile(pattern)
 			if err != nil {
 				log.Printf("不正な正規表現を検知しました。[%s]: %+v\n", pattern, err)
-				os.Exit(2)
+				return err
 			}
 			rule.ForbiddenImportPathPatternMatchers = append(rule.ForbiddenImportPathPatternMatchers, *matcher)
 		}
@@ -143,12 +145,12 @@ func run(
 	contentGoMod, err := os.ReadFile(path.Join(dirPathGoModule, "go.mod"))
 	if err != nil {
 		log.Printf("go.modファイルを読み込めませんでした。: %+v\n", err)
-		os.Exit(2)
+		return err
 	}
 	goModFile, err := modfile.Parse("go.mod", contentGoMod, nil)
 	if err != nil {
 		log.Printf("go.modファイルをパースできませんでした。: %+v\n", err)
-		os.Exit(2)
+		return err
 	}
 	modName := goModFile.Module.Mod.Path
 
@@ -165,7 +167,8 @@ func run(
 		}
 		for _, pkg := range pkgs {
 			// importする側のパッケージのImportPath
-			importPathCurrentPackage := path.Join(modName, dirPathCurrent)
+			relDirPath, _ := filepath.Rel(dirPathGoModule, dirPathCurrent)
+			importPathCurrentPackage := path.Join(modName, relDirPath)
 			files := []File{}
 			for filePath, goFile := range pkg.Files {
 				imports := []Import{}
@@ -186,12 +189,12 @@ func run(
 		return nil
 	}); err != nil {
 		log.Printf("filepath.Walk関数がエラー終了しました。: %+v\n", err)
-		os.Exit(2)
+		return err
 	}
 
 	// Validate
-	exitCode := 0
 	results := validate(rules, packages)
+	isViolationOccured := false
 	for _, result := range results {
 		if !result.HasViolation() {
 			continue
@@ -204,7 +207,7 @@ func run(
 			if !result.HasViolation() {
 				continue
 			}
-			exitCode = 3
+			isViolationOccured = true
 			log.Printf("- %s\n", resultPerFile.FilePath)
 			for _, violation := range resultPerFile.Violations {
 				log.Printf("  - \"import %s\"はルール\"%s\"に違反します。\n", violation.ImportPath, violation.RuleName)
@@ -212,7 +215,10 @@ func run(
 		}
 		log.Println()
 	}
-	os.Exit(exitCode)
+	if isViolationOccured {
+		return fmt.Errorf("ルール違反")
+	}
+	return nil
 }
 
 type InvalidRuleError struct {

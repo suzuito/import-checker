@@ -1,4 +1,4 @@
-package pkg1
+package pkg11
 
 import (
 	pkg2notsamebasedir "www.example.com/hoge/fuga/pkg2"

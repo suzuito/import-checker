@@ -1,0 +1,9 @@
+- name: ルール１
+  srcImportPathPatterns:
+    - ^www\.example\.com/hoge/fuga/pkg1$
+    - ^www\.example\.com/hoge/fuga/pkg1/.*$
+  forbiddenImportPathPatterns:
+    - ^www\.example\.com/hoge/fuga/pkg2$
+    - ^www\.example\.com/hoge/fuga/pkg2/.*$
+    - ^www\.example\.com/hoge/fuga/pkg3$
+    - ^www\.example\.com/hoge/fuga/pkg3/.*$
