@@ -6,6 +6,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -93,28 +94,37 @@ func main() {
 	ruleFilePath := ""
 	dirPathGoModule := ""
 	flag.StringVar(&ruleFilePath, "rule-file", "", "ルールファイルのパス")
-	flag.StringVar(&dirPathGoModule, "dir", "./", "Goモジュールのディレクトリパス(デフォルト値はカレントディレクトリ)")
+	flag.StringVar(&dirPathGoModule, "mod-dir", "./", "Goモジュールのディレクトリパス(デフォルト値はカレントディレクトリ)")
 	flag.Parse()
 	if ruleFilePath == "" {
 		usage()
 		os.Exit(1)
 	}
+	log.SetFlags(0)
+	// log.SetOutput(io.Discard)
+	run(ruleFilePath, dirPathGoModule)
+}
+
+func run(
+	ruleFilePath,
+	dirPathGoModule string,
+) {
 	// ルールファイルを読み込む
 	ruleFileBytes, err := os.ReadFile(ruleFilePath)
 	if err != nil {
-		fmt.Printf("ルールファイルの読み込めませんでした。: %+v\n", err)
+		log.Printf("ルールファイルの読み込めませんでした。: %+v\n", err)
 		os.Exit(2)
 	}
 	rules := []*Rule{}
 	if err := yaml.Unmarshal(ruleFileBytes, &rules); err != nil {
-		fmt.Printf("ルールファイルをYAML形式として読み込めませんでした。: %+v\n", err)
+		log.Printf("ルールファイルをYAML形式として読み込めませんでした。: %+v\n", err)
 		os.Exit(2)
 	}
 	for _, rule := range rules {
 		for _, pattern := range rule.SrcImportPathPatterns {
 			matcher, err := regexp.Compile(pattern)
 			if err != nil {
-				fmt.Printf("不正な正規表現を検知しました。[%s]: %+v\n", pattern, err)
+				log.Printf("不正な正規表現を検知しました。[%s]: %+v\n", pattern, err)
 				os.Exit(2)
 			}
 			rule.SrcImportPathPatternMatchers = append(rule.SrcImportPathPatternMatchers, *matcher)
@@ -122,7 +132,7 @@ func main() {
 		for _, pattern := range rule.ForbiddenImportPathPatterns {
 			matcher, err := regexp.Compile(pattern)
 			if err != nil {
-				fmt.Printf("不正な正規表現を検知しました。[%s]: %+v\n", pattern, err)
+				log.Printf("不正な正規表現を検知しました。[%s]: %+v\n", pattern, err)
 				os.Exit(2)
 			}
 			rule.ForbiddenImportPathPatternMatchers = append(rule.ForbiddenImportPathPatternMatchers, *matcher)
@@ -132,12 +142,12 @@ func main() {
 	// go.modを読み込む
 	contentGoMod, err := os.ReadFile(path.Join(dirPathGoModule, "go.mod"))
 	if err != nil {
-		fmt.Printf("go.modファイルを読み込めませんでした。: %+v\n", err)
+		log.Printf("go.modファイルを読み込めませんでした。: %+v\n", err)
 		os.Exit(2)
 	}
 	goModFile, err := modfile.Parse("go.mod", contentGoMod, nil)
 	if err != nil {
-		fmt.Printf("go.modファイルをパースできませんでした。: %+v\n", err)
+		log.Printf("go.modファイルをパースできませんでした。: %+v\n", err)
 		os.Exit(2)
 	}
 	modName := goModFile.Module.Mod.Path
@@ -155,7 +165,7 @@ func main() {
 		}
 		for _, pkg := range pkgs {
 			// importする側のパッケージのImportPath
-			importPathCurrentPackage := path.Join(modName, path.Dir(dirPathCurrent))
+			importPathCurrentPackage := path.Join(modName, dirPathCurrent)
 			files := []File{}
 			for filePath, goFile := range pkg.Files {
 				imports := []Import{}
@@ -175,7 +185,7 @@ func main() {
 		}
 		return nil
 	}); err != nil {
-		fmt.Printf("filepath.Walk関数がエラー終了しました。: %+v\n", err)
+		log.Printf("filepath.Walk関数がエラー終了しました。: %+v\n", err)
 		os.Exit(2)
 	}
 
@@ -186,21 +196,21 @@ func main() {
 		if !result.HasViolation() {
 			continue
 		}
-		fmt.Printf("## %s\n", result.SrcImportPath)
-		fmt.Println()
-		fmt.Println("下記ファイルに違反があります。")
-		fmt.Println()
+		log.Printf("## %s\n", result.SrcImportPath)
+		log.Println()
+		log.Println("下記ファイルに違反があります。")
+		log.Println()
 		for _, resultPerFile := range result.Results {
 			if !result.HasViolation() {
 				continue
 			}
 			exitCode = 3
-			fmt.Printf("- %s\n", resultPerFile.FilePath)
+			log.Printf("- %s\n", resultPerFile.FilePath)
 			for _, violation := range resultPerFile.Violations {
-				fmt.Printf("  - \"import %s\"はルール\"%s\"に違反します。\n", violation.ImportPath, violation.RuleName)
+				log.Printf("  - \"import %s\"はルール\"%s\"に違反します。\n", violation.ImportPath, violation.RuleName)
 			}
 		}
-		fmt.Println()
+		log.Println()
 	}
 	os.Exit(exitCode)
 }
