@@ -39,6 +39,7 @@ import-checker -rule-file rules.yaml -mod-dir ./
 ## インストール方法
 
 ```bash
+go get github.com/suzuito/import-checker
 go install github.com/suzuito/import-checker
 ```
 
